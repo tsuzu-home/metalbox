@@ -1,0 +1,73 @@
+---
+variant: flatcar
+version: 1.1.0
+systemd:
+  units:
+    - name: reboot.service
+      enabled: true
+      contents: |
+        [Unit]
+        Requires=network-online.target
+        After=network-online.target
+        [Service]
+        Type=simple
+        ExecStart=/opt/reboot
+        [Install]
+        WantedBy=multi-user.target
+storage:
+  disks:
+    - device: ${main_disk}
+      wipe_table: true
+      partitions:
+        - label: ROOT
+          number: 1
+          start_mib: 0
+          size_mib: 30720
+          wipe_partition_entry: true
+        - label: lvm
+          number: 2
+          size_mib: 0
+          wipe_partition_entry: true
+  filesystems:
+    - device: /dev/disk/by-partlabel/ROOT
+      format: btrfs
+      wipe_filesystem: true
+      label: ROOT
+  files:
+    - path: /opt/reboot
+      mode: 0500
+      contents:
+        inline: |
+          #!/bin/bash -ex
+
+          VG=main
+          PVS="/dev/disk/by-partlabel/lvm"
+
+          # When lvmetad is used, PVs are not scaned by vgchange.
+          # We need to scan PVs manually and send infomation to lvmetad. 
+          pvscan --cache -a ay
+
+          vgchange -a ay
+          sleep 1
+
+          if ! vgs $VG >/dev/null 2>&1; then
+              vgcreate $VG $PVS -y
+              sync
+          fi
+
+          lvchange $VG -a ay
+          sleep 1
+
+          if ! lvs var-lib-k0s >/dev/null 2>&1; then
+              lvcreate -n var-lib-k0s -L 50g $VG
+              mkfs.xfs /dev/$VG/var-lib-k0s
+              sync
+          fi
+
+          sleep 1
+          systemctl reboot
+passwd:
+  users:
+    - name: core
+      ssh_authorized_keys:
+        - ${ssh_authorized_key}
