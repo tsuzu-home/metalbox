@@ -34,6 +34,7 @@ storage:
       contents:
         inline: ${host_name}
     - path: /etc/systemd/network/20-enp.network
+      overwrite: true
       contents:
         inline: |
           [Match]

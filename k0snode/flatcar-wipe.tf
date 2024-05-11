@@ -1,6 +1,5 @@
-// Profile to set an SSH authorized key on first boot from disk
-resource "matchbox_profile" "wipe-filesystem" {
-  name         = "wipe-filesystem"
+resource "matchbox_profile" "flatcar-wipe" {
+  name         = "flatcar-wipe-${var.hostname}"
   kernel = "/assets/flatcar/${var.flatcar_linux_version}/flatcar_production_pxe.vmlinuz"
   initrd = [
     "/assets/flatcar/${var.flatcar_linux_version}/flatcar_production_pxe_image.cpio.gz",
@@ -12,10 +11,10 @@ resource "matchbox_profile" "wipe-filesystem" {
     "flatcar.first_boot=yes",
   ]
 
-  raw_ignition = data.ct_config.wipe-filesystem.rendered
+  raw_ignition = data.ct_config.flatcar-wipe.rendered
 }
 
-data "ct_config" "wipe-filesystem" {
+data "ct_config" "flatcar-wipe" {
   content = templatefile("k0snode/butane/flatcar-wipe.yaml", {
     ssh_authorized_key = var.ssh_authorized_key
     main_disk = "/dev/nvme0n1"

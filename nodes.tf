@@ -6,6 +6,7 @@ module "laurel" {
   flatcar_linux_version = "3815.2.1"
   hostname = "laurel"
   mac = "6c:4b:90:a2:79:85"
+  profile = "flatcar-running"
 }
 
 module "paprika" {
@@ -16,4 +17,5 @@ module "paprika" {
   flatcar_linux_version = "3815.2.1"
   hostname = "paprika"
   mac = "58:47:ca:76:76:a2"
+  profile = "flatcar-running"
 }

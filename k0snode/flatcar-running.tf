@@ -1,6 +1,5 @@
-// Create a flatcar-running profile
 resource "matchbox_profile" "flatcar-running" {
-  name   = "flatcar-running"
+  name   = "flatcar-running-${var.hostname}"
   kernel = "/assets/flatcar/${var.flatcar_linux_version}/flatcar_production_pxe.vmlinuz"
   initrd = [
     "/assets/flatcar/${var.flatcar_linux_version}/flatcar_production_pxe_image.cpio.gz",

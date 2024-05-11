@@ -27,3 +27,8 @@ variable "mac" {
   type        = string
   description = "MAC address of the machine"
 }
+
+variable "profile" {
+  type        = string
+  description = "profile to use"
+}
