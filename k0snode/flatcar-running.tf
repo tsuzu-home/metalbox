@@ -18,8 +18,10 @@ resource "matchbox_profile" "flatcar-running" {
 data "ct_config" "running" {
   content = templatefile("k0snode/butane/flatcar-running.yaml", {
     matchbox_http_endpoint = var.matchbox_http_endpoint
-    ssh_authorized_key     = var.ssh_authorized_key
+    ssh_authorized_keys    = var.ssh_authorized_keys
     host_name              = var.hostname
+    ip                     = var.ip
+    nic                    = var.nic
   })
   strict = true
 }

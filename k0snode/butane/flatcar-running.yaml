@@ -9,9 +9,27 @@ systemd:
         [Unit]
         Requires=network-online.target
         After=network-online.target
+        Before=k0s-installer-server.service
         [Service]
-        Type=simple
+        Type=oneshot
         ExecStart=/opt/installer
+        [Install]
+        WantedBy=multi-user.target
+    - name: k0s-installer-server.service
+      enabled: true
+      contents: |
+        [Unit]
+        Requires=network-online.target
+        After=installer.service
+        [Service]
+        ExecStart=/opt/bin/static-web-server \
+          --index-files=get-k0s-sh \
+          --host 127.0.0.1 \
+          --port 443 \
+          --root /opt/k0s-installer/files \
+          --http2 \
+          --http2-tls-cert /opt/k0s-installer/certs/get.k0s.sh.pem \
+          --http2-tls-key /opt/k0s-installer/certs/get.k0s.sh-key.pem
         [Install]
         WantedBy=multi-user.target
     - name: docker.service
@@ -20,6 +38,20 @@ systemd:
       mask: true
     - name: containerd.service
       mask: true
+    - name: var-lib-k0s.mount
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Mount /var/lib/k0s
+        Before=k0s.service
+        After=lvm2-lvmetad.service
+        [Mount]
+        What=/dev/main/var-lib-k0s
+        Where=/var/lib/k0s
+        Type=xfs
+        Options=defaults
+        [Install]
+        WantedBy=multi-user.target
 storage:
   files:
     - path: /opt/installer
@@ -28,6 +60,88 @@ storage:
       contents:
         inline: |
           #!/bin/bash -ex
+
+          cd /tmp
+          curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
+          chmod +x mkcert-v*-linux-amd64
+          sudo cp mkcert-v*-linux-amd64 /opt/bin/mkcert
+          export CAROOT=/root/.local/share/mkcert
+          /opt/bin/mkcert -install
+
+          cp $(/opt/bin/mkcert -CAROOT)/rootCA.pem /etc/ssl/certs/mkcert.pem
+          update-ca-certificates
+
+          wget https://github.com/static-web-server/static-web-server/releases/download/v2.31.1/static-web-server-v2.31.1-x86_64-unknown-linux-gnu.tar.gz
+          tar xf static-web-server*.tar.gz
+          rm static-web-server*.tar.gz
+          cp ./static-web-server-v2.31.1-x86_64-unknown-linux-gnu/static-web-server /opt/bin/static-web-server
+
+          mkdir -p /opt/k0s-installer/certs
+          cd /opt/k0s-installer/certs
+          /opt/bin/mkcert get.k0s.sh
+    - path: /opt/k0s-installer/files/get-k0s-sh
+      mode: 0600
+      overwrite: true
+      contents:
+        inline: |
+          #!/bin/sh
+
+          set -e
+
+          if [ -n "$DEBUG" ]; then
+            set -x
+          fi
+
+          _k0s_latest() {
+            curl -sSLf "https://docs.k0sproject.io/stable.txt"
+          }
+
+          _detect_binary() {
+            os="$(uname)"
+            case "$os" in
+              Linux) echo "k0s" ;;
+              *) echo "Unsupported operating system: $os" 1>&2; return 1 ;;
+            esac
+            unset os
+          }
+
+          _detect_arch() {
+            arch="$(uname -m)"
+            case "$arch" in
+              amd64|x86_64) echo "amd64" ;;
+              arm64|aarch64) echo "arm64" ;;
+              armv7l|armv8l|arm) echo "arm" ;;
+              *) echo "Unsupported processor architecture: $arch" 1>&2; return 1 ;;
+            esac
+            unset arch
+          }
+
+          _download_url() {
+            echo "https://github.com/k0sproject/k0s/releases/download/$K0S_VERSION/$k0sBinary-$K0S_VERSION-$k0sArch"
+          }
+
+          main() {
+            if [ -z "$K0S_VERSION" ]; then
+              K0S_VERSION=$(_k0s_latest)
+            fi
+
+            k0sInstallPath=/opt/bin
+            k0sBinary="$(_detect_binary)"
+            k0sArch="$(_detect_arch)"
+            k0sDownloadUrl="$(_download_url)"
+
+            sudo mkdir -p -- "$k0sInstallPath"
+
+            echo "Downloading k0s from URL: $k0sDownloadUrl"
+
+            sudo curl -sSLf "$k0sDownloadUrl" -o "$k0sInstallPath/$k0sBinary"
+            sudo chmod 755 -- "$k0sInstallPath/$k0sBinary"
+
+            echo "k0s is now executable in $k0sInstallPath"
+          }
+
+          main
+
     - path: /etc/hostname
       mode: 0644
       overwrite: true
@@ -38,16 +152,40 @@ storage:
       contents:
         inline: |
           [Match]
-          Name=enp*
+          Name=${nic}
           [Network]
-          DHCP=yes
+          DHCP=false
+          IPv6AcceptRA=true
 
-          [DHCP]
-          ClientIdentifier=mac
-          UseMTU=true
-          UseDomains=true
+          [Network]
+          Address=${ip}
+          Address=10.25.0.1/32
+          Gateway=10.24.0.1
+          DNS=10.24.0.1
+    - path: /etc/ssh/sshd_config.d/90-sshd.conf
+      mode: 0500
+      overwrite: true
+      contents:
+        inline: |
+          PermitRootLogin without-password
+    - path: /root/.ssh/authorized_keys
+      mode: 0600
+      overwrite: true
+      contents:
+        inline: |
+%{ for ssh_authorized_key in ssh_authorized_keys ~}
+          ${ssh_authorized_key}
+%{ endfor ~}
+    - path: /etc/environment
+      mode: 0755
+      overwrite: true
+      contents:
+        inline: |
+          PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/bin
 passwd:
   users:
     - name: core
       ssh_authorized_keys:
+%{ for ssh_authorized_key in ssh_authorized_keys ~}
         - ${ssh_authorized_key}
+%{ endfor ~}

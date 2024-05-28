@@ -16,7 +16,7 @@ resource "matchbox_profile" "flatcar-wipe" {
 
 data "ct_config" "flatcar-wipe" {
   content = templatefile("k0snode/butane/flatcar-wipe.yaml", {
-    ssh_authorized_key = var.ssh_authorized_key
+    ssh_authorized_keys = var.ssh_authorized_keys
     main_disk = "/dev/nvme0n1"
   })
   strict = true

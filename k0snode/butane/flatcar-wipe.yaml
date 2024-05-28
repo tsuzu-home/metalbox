@@ -58,7 +58,7 @@ storage:
           lvchange $VG -a ay
           sleep 1
 
-          if ! lvs var-lib-k0s >/dev/null 2>&1; then
+          if ! lvs $VG | grep var-lib-k0s >/dev/null 2>&1; then
               lvcreate -n var-lib-k0s -L 50g $VG
               mkfs.xfs /dev/$VG/var-lib-k0s
               sync
@@ -70,4 +70,6 @@ passwd:
   users:
     - name: core
       ssh_authorized_keys:
+%{ for ssh_authorized_key in ssh_authorized_keys ~}
         - ${ssh_authorized_key}
+%{ endfor ~}
