@@ -42,3 +42,15 @@ variable "nic" {
   type        = string
   description = "Network interface to use"
 }
+
+variable "main_disk" {
+  type        = string
+  description = "Main disk to use"
+  default     = "/dev/nvme0n1"
+}
+
+variable "lvm_disk" {
+  type        = string
+  description = "Disk to use for LVM"
+  default     = ""
+}

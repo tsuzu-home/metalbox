@@ -1,0 +1,10 @@
+---
+variant: flatcar
+version: 1.1.0
+passwd:
+  users:
+    - name: core
+      ssh_authorized_keys:
+%{ for ssh_authorized_key in ssh_authorized_keys ~}
+        - ${ssh_authorized_key}
+%{ endfor ~}
