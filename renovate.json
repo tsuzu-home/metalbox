@@ -1,6 +1,50 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "$schema": "https://docs.renovatebot.com/renovation-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "timezone": "Asia/Tokyo",
+  "prHourlyLimit": 4,
+  "prConcurrentLimit": 10,
+  "vulnerabilityAlerts": {
+    "labels": [
+      "vulnerability"
+    ],
+    "groupName": "vulnerability alerts"
+  },
+  "osvVulnerabilityAlerts": true,
+  "packageRules": [
+    {
+      "description": "No CI / no branch protection on this repo: do NOT automerge. The daily Muse check verifies (build/test) and merges manually.",
+      "matchUpdateTypes": [
+        "patch",
+        "minor"
+      ],
+      "automerge": false,
+      "labels": [
+        "needs-daily-check"
+      ]
+    },
+    {
+      "description": "Major updates are always manual review",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false,
+      "labels": [
+        "major-update"
+      ]
+    },
+    {
+      "description": "Terraform core and providers: manual review only (provisioning impact on Talos/matchbox infra)",
+      "matchManagers": [
+        "terraform"
+      ],
+      "automerge": false,
+      "labels": [
+        "terraform",
+        "manual-review"
+      ]
+    }
   ]
 }
